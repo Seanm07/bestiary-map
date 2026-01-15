@@ -1,2 +1,2 @@
-# Example
-An example greeter plugin
+# Bestiary Map
+An idea for a bestiary map plugin, WIP

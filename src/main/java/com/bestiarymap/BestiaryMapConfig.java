@@ -1,11 +1,11 @@
-package com.example;
+package com.bestiarymap;
 
 import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigItem;
 
-@ConfigGroup("example")
-public interface ExampleConfig extends Config
+@ConfigGroup("bestiarymap")
+public interface BestiaryMapConfig extends Config
 {
 	@ConfigItem(
 		keyName = "greeting",
