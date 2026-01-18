@@ -1,7 +1,9 @@
 package com.bestiarymap;
 
 import com.google.inject.Provides;
+
 import javax.inject.Inject;
+
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
@@ -26,80 +28,72 @@ import java.time.temporal.ChronoUnit;
 
 @Slf4j
 @PluginDescriptor(
-	name = "Bestiary Map"
+        name = "Bestiary Map"
 )
-public class BestiaryMapPlugin extends Plugin
-{
-	@Inject
-	private Client client;
+public class BestiaryMapPlugin extends Plugin {
+    @Inject
+    private Client client;
 
-	@Inject
-	private BestiaryMapConfig config;
+    @Inject
+    private BestiaryMapConfig config;
 
-	@Inject
-	private WorldMapPointManager worldMapPointManager;
+    @Inject
+    private WorldMapPointManager worldMapPointManager;
 
-	@Inject
-	private OverlayManager overlayManager;
+    @Inject
+    private OverlayManager overlayManager;
 
-	@Inject
-	private BestiaryMapOverlay overlay;
+    @Inject
+    private BestiaryMapOverlay overlay;
 
 
-	@Override
-	protected void startUp() throws Exception
-	{
-		overlayManager.add(overlay);
-	}
+    @Override
+    protected void startUp() throws Exception {
+        overlayManager.add(overlay);
+    }
 
-	@Override
-	protected void shutDown() throws Exception
-	{
-		if (examplePoint != null)
-		{
-			worldMapPointManager.remove(examplePoint);
-		}
+    @Override
+    protected void shutDown() throws Exception {
+        if (examplePoint != null) {
+            worldMapPointManager.remove(examplePoint);
+        }
 
-		overlayManager.remove(overlay);
-	}
+        overlayManager.remove(overlay);
+    }
 
-	private WorldMapPoint examplePoint;
+    private WorldMapPoint examplePoint;
 
-	@Subscribe
-	public void onGameStateChanged(GameStateChanged gameStateChanged)
-	{
-		if (gameStateChanged.getGameState() == GameState.LOGGED_IN)
-		{
-			WorldPoint location = new WorldPoint(3200, 3200, 0);
+    @Subscribe
+    public void onGameStateChanged(GameStateChanged gameStateChanged) {
+        if (gameStateChanged.getGameState() == GameState.LOGGED_IN) {
+            WorldPoint location = new WorldPoint(3200, 3200, 0);
 
-			examplePoint = new WorldMapPoint(
-					location,
-					createDot()
-			);
+            examplePoint = new WorldMapPoint(
+                    location,
+                    createDot()
+            );
 
-			examplePoint.setName("Example text on the world map");
-			examplePoint.setJumpOnClick(false);
+            examplePoint.setName("Example text on the world map");
+            examplePoint.setJumpOnClick(false);
 
-			worldMapPointManager.add(examplePoint);
+            worldMapPointManager.add(examplePoint);
 
-			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Custom plugin loaded " + config.greeting(), null);
-		}
-	}
+            client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Custom plugin loaded " + config.greeting(), null);
+        }
+    }
 
-	@Provides
-	BestiaryMapConfig provideConfig(ConfigManager configManager)
-	{
-		return configManager.getConfig(BestiaryMapConfig.class);
-	}
+    @Provides
+    BestiaryMapConfig provideConfig(ConfigManager configManager) {
+        return configManager.getConfig(BestiaryMapConfig.class);
+    }
 
-	private BufferedImage createDot()
-	{
-		BufferedImage img = new BufferedImage(8, 8, BufferedImage.TYPE_INT_ARGB);
-		Graphics2D g = img.createGraphics();
-		g.setColor(Color.RED);
-		g.fillOval(0, 0, 8, 8);
-		g.dispose();
-		return img;
-	}
+    private BufferedImage createDot() {
+        BufferedImage img = new BufferedImage(8, 8, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = img.createGraphics();
+        g.setColor(Color.RED);
+        g.fillOval(0, 0, 8, 8);
+        g.dispose();
+        return img;
+    }
 
 }
