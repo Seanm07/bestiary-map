@@ -10,6 +10,7 @@ import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.GameStateChanged;
+import net.runelite.api.events.MenuOptionClicked;
 import net.runelite.api.widgets.Widget;
 import net.runelite.api.widgets.WidgetInfo;
 import net.runelite.client.config.ConfigManager;
@@ -23,6 +24,7 @@ import net.runelite.client.ui.overlay.worldmap.WorldMapPoint;
 import net.runelite.client.ui.overlay.worldmap.WorldMapPointManager;
 
 import java.awt.*;
+import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 import java.time.temporal.ChronoUnit;
 
@@ -38,14 +40,10 @@ public class BestiaryMapPlugin extends Plugin {
     private BestiaryMapConfig config;
 
     @Inject
-    private WorldMapPointManager worldMapPointManager;
-
-    @Inject
     private OverlayManager overlayManager;
 
     @Inject
     private BestiaryMapOverlay overlay;
-
 
     @Override
     protected void startUp() throws Exception {
@@ -54,46 +52,24 @@ public class BestiaryMapPlugin extends Plugin {
 
     @Override
     protected void shutDown() throws Exception {
-        if (examplePoint != null) {
-            worldMapPointManager.remove(examplePoint);
-        }
-
         overlayManager.remove(overlay);
     }
-
-    private WorldMapPoint examplePoint;
 
     @Subscribe
     public void onGameStateChanged(GameStateChanged gameStateChanged) {
         if (gameStateChanged.getGameState() == GameState.LOGGED_IN) {
-            WorldPoint location = new WorldPoint(3200, 3200, 0);
-
-            examplePoint = new WorldMapPoint(
-                    location,
-                    createDot()
-            );
-
-            examplePoint.setName("Example text on the world map");
-            examplePoint.setJumpOnClick(false);
-
-            worldMapPointManager.add(examplePoint);
-
             client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Custom plugin loaded " + config.greeting(), null);
         }
+    }
+
+    @Subscribe
+    public void onMenuOptionClicked(MenuOptionClicked event) {
+        overlay.OnClick(event);
     }
 
     @Provides
     BestiaryMapConfig provideConfig(ConfigManager configManager) {
         return configManager.getConfig(BestiaryMapConfig.class);
-    }
-
-    private BufferedImage createDot() {
-        BufferedImage img = new BufferedImage(8, 8, BufferedImage.TYPE_INT_ARGB);
-        Graphics2D g = img.createGraphics();
-        g.setColor(Color.RED);
-        g.fillOval(0, 0, 8, 8);
-        g.dispose();
-        return img;
     }
 
 }
