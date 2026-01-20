@@ -79,9 +79,13 @@ public class BestiaryMapOverlay extends Overlay {
             Point mapPos = worldMap.getWorldMapPosition();
 
             Widget worldmapBottomBarWidget = client.getWidget(WidgetInfo.WORLD_MAP_BOTTOM_BAR);
+            if(worldmapBottomBarWidget == null) return null;
+
             Rectangle mapBottomBarBounds = worldmapBottomBarWidget.getBounds();
 
             Widget worldmapZoomOutWidget = client.getWidget(38993947); // Map zoom out button
+            if(worldmapZoomOutWidget == null) return null;
+
             Rectangle zoomOutButtonBounds = worldmapZoomOutWidget.getBounds();
 
             toggleOverlayButton.SetPosition(zoomOutButtonBounds.x - 5, mapBottomBarBounds.y + (mapBottomBarBounds.height / 2));
