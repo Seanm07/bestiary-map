@@ -1,10 +1,12 @@
 package com.bestiarymap.util;
 
+import lombok.Getter;
 import net.runelite.client.game.SpriteManager;
 import net.runelite.client.ui.overlay.tooltip.Tooltip;
 import net.runelite.client.ui.overlay.tooltip.TooltipManager;
 
 import java.awt.*;
+import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 
 public final class RenderHelper {
@@ -14,7 +16,8 @@ public final class RenderHelper {
 
     public static class LabelBuilder {
         private String text;
-        private int x, y;
+        @Getter private int x, y;
+        @Getter private int fontSize = 13;
         private Color color = Color.BLACK;
         private Alignment alignment = Alignment.BOTTOM_LEFT;
 
@@ -22,30 +25,48 @@ public final class RenderHelper {
 
         }
 
-        public LabelBuilder text(String text) {
+        public LabelBuilder SetText(String text) {
             this.text = text;
             return this;
         }
 
-        public LabelBuilder position(int x, int y) {
+        public LabelBuilder SetPosition(int x, int y) {
             this.x = x;
             this.y = y;
             return this;
         }
 
-        public LabelBuilder color(Color color) {
+        public LabelBuilder SetFontSize(int fontSize) {
+            this.fontSize = fontSize;
+            return this;
+        }
+
+        public LabelBuilder SetColor(Color color) {
             this.color = color;
             return this;
         }
 
-        public LabelBuilder alignment(Alignment alignment) {
+        public LabelBuilder SetAlignment(Alignment alignment) {
             this.alignment = alignment;
             return this;
         }
 
         public void Render(Graphics2D graphics) {
+            Font font = new Font(graphics.getFont().getFontName(), Font.PLAIN, fontSize);
+            graphics.setFont(font);
+
             Rectangle rect = GetRenderAlignment(graphics.getFontMetrics());
 
+            graphics.setRenderingHint(
+                    RenderingHints.KEY_TEXT_ANTIALIASING,
+                    RenderingHints.VALUE_TEXT_ANTIALIAS_ON
+            );
+
+            // Draw 1px downward black shadow
+            graphics.setColor(Color.BLACK);
+            graphics.drawString(text, rect.x + 1, rect.y + 1);
+
+            // Draw main text
             graphics.setColor(color);
             graphics.drawString(text, rect.x, rect.y);
         }
@@ -74,7 +95,7 @@ public final class RenderHelper {
     public static class ButtonBuilder {
         private boolean isDirty;
 
-        private int x, y, width, height, spriteId = -1;
+        @Getter private int x, y, width, height, spriteId = -1;
         private Alignment alignment = Alignment.TOP_LEFT;
 
         private Rectangle buttonRect;
@@ -198,6 +219,140 @@ public final class RenderHelper {
 
             return new Rectangle(x, y, width, height);
         }
+    }
+
+    public static class InputBuilder {
+        private boolean isDirty;
+
+        @Getter private int x, y, width, height;
+        private Alignment alignment = Alignment.TOP_LEFT;
+
+        private String placeholderLabel;
+        private Rectangle buttonRect;
+        public boolean isHovered, isFocused;
+
+        private LabelBuilder label = new LabelBuilder();
+
+        public InputBuilder() {
+            label.SetAlignment(Alignment.MIDDLE);
+            label.SetColor(Color.decode("#9f9f9f"));
+        }
+
+        public InputBuilder SetPosition(int x, int y) {
+            this.x = x;
+            this.y = y;
+            isDirty = true;
+            return this;
+        }
+
+        public InputBuilder SetSize(int width, int height) {
+            this.width = width;
+            this.height = height;
+            isDirty = true;
+            return this;
+        }
+
+        public InputBuilder SetAlignment(Alignment alignment) {
+            this.alignment = alignment;
+            isDirty = true;
+            return this;
+        }
+
+        public InputBuilder SetPlaceholderLabel(String placeholderLabel) {
+            this.placeholderLabel = placeholderLabel;
+            return this;
+        }
+
+        public void Render(Graphics2D graphics, SpriteManager spriteManager, TooltipManager tooltipManager) {
+            // If the button has changed update the button bounds
+            UpdateRenderAlignmentIfDirty();
+
+            if(spriteManager != null) {
+                // Down arrow sprite
+                BufferedImage arrowSprite = spriteManager.getSprite(1000, 0);
+                //graphics.drawImage(arrowSprite, buttonRect.x + 2, buttonRect.y + buttonRect.height, 20, 20, null);
+                DrawRotatedSprite(graphics, arrowSprite, buttonRect.x + buttonRect.width - 48, buttonRect.y + (buttonRect.height / 2), 20, 20, -45);
+
+                // Black border
+                graphics.setColor(Color.BLACK);
+                graphics.drawRect(buttonRect.x, buttonRect.y, buttonRect.width, buttonRect.height);
+
+                // Inner gray border
+                graphics.setColor(Color.decode("#474745"));
+                graphics.drawRect(buttonRect.x+1, buttonRect.y+1, buttonRect.width-2, buttonRect.height-2);
+
+                // Input background
+                BufferedImage bgSprite = spriteManager.getSprite(isHovered || isFocused ? 297 : 897, 0);
+                graphics.drawImage(bgSprite, buttonRect.x + 2, buttonRect.y + 2, buttonRect.width - 3, buttonRect.height - 3, null);
+
+                // Draw label
+                label.SetText(isFocused ? "<col=ff0000>*</col>" : placeholderLabel);
+                label.SetPosition(buttonRect.x + (buttonRect.width / 2), buttonRect.y + (buttonRect.height / 2));
+                label.Render(graphics);
+            } else {
+                // Fallback to just drawing a red box
+                graphics.setColor(Color.RED);
+                graphics.drawRect(buttonRect.x, buttonRect.y, buttonRect.width, buttonRect.height);
+            }
+
+            if(isHovered && tooltipManager != null){
+                tooltipManager.add(new Tooltip((isFocused ? "Quit" : placeholderLabel)));
+            }
+        }
+
+        public void UpdateHoverState(net.runelite.api.Point mouse){
+            // If the button has changed update the button bounds
+            UpdateRenderAlignmentIfDirty();
+
+            isHovered = buttonRect != null && buttonRect.contains(mouse.getX(), mouse.getY());
+        }
+
+        public void SetFocused(Boolean focused){
+            isFocused = focused;
+        }
+
+        private void UpdateRenderAlignmentIfDirty(){
+            if(isDirty){
+                buttonRect = GetRenderAlignment();
+                isDirty = false;
+            }
+        }
+
+        private Rectangle GetRenderAlignment() {
+            // drawn from top left by default
+
+            // x alignment adjustments
+            if (alignment == Alignment.RIGHT || alignment == Alignment.TOP_RIGHT || alignment == Alignment.BOTTOM_RIGHT) {
+                x -= width;
+            } else if (alignment == Alignment.TOP || alignment == Alignment.MIDDLE || alignment == Alignment.BOTTOM) {
+                x -= width / 2;
+            }
+
+            // y alignment adjustments
+            if (alignment == Alignment.BOTTOM_LEFT || alignment == Alignment.BOTTOM || alignment == Alignment.BOTTOM_RIGHT) {
+                y -= height;
+            } else if (alignment == Alignment.LEFT || alignment == Alignment.MIDDLE || alignment == Alignment.RIGHT) {
+                y -= height / 2;
+            }
+
+            return new Rectangle(x, y, width, height);
+        }
+    }
+
+    public static void DrawRotatedSprite(Graphics2D graphics, BufferedImage sprite, int x, int y, int width, int height, double angleDegrees){
+        AffineTransform transform = new AffineTransform();
+
+        // Set origin to center of canvas
+        transform.translate(x + width / 2, y + height / 2);
+
+        // Rotate canvas around the center
+        transform.rotate(Math.toRadians(angleDegrees));
+
+        // Move origin back to top left of sprite
+        transform.translate(-width / 2, -height / 2);
+
+        // Draw the sprite with the new transform applied
+        graphics.drawImage(sprite, transform, null);
     }
 
 }

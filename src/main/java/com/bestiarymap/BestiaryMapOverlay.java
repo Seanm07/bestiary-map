@@ -43,25 +43,32 @@ public class BestiaryMapOverlay extends Overlay {
 
     private LabelBuilder coordinatesLabel;
     private ButtonBuilder toggleOverlayButton;
+    private InputBuilder searchBar;
 
     private Boolean overlayEnabled = false;
+    private Boolean searchFocused = false;
 
     @Inject
     public BestiaryMapOverlay(Client client) {
         this.client = client;
         setLayer(OverlayLayer.ABOVE_WIDGETS);
 
-        // Add coordinates to bottom bar below map
+        // Temporary coordinates label on world map to be removed later
         coordinatesLabel = new LabelBuilder()
-                .color(Color.WHITE)
-                .alignment(Alignment.RIGHT);
+            .SetColor(Color.WHITE)
+            .SetAlignment(Alignment.RIGHT);
 
-        // Add a button
+        // Button to toggle the world map bestiary overlay
         toggleOverlayButton = new ButtonBuilder()
-                .SetSize(36, 24)
-                .SetIcon(579)
-                .SetSize(36, 24)
-                .SetAlignment(Alignment.RIGHT);
+            .SetSize(36, 24)
+            .SetIcon(579)
+            .SetAlignment(Alignment.RIGHT);
+
+        // Search bar to filter monster names
+        searchBar = new InputBuilder()
+            .SetSize(200, 20)
+            .SetPlaceholderLabel("Monster Search")
+            .SetAlignment(Alignment.BOTTOM_RIGHT);
     }
 
     @Override
@@ -94,14 +101,17 @@ public class BestiaryMapOverlay extends Overlay {
 
             if (overlayEnabled) {
                 // TODO: Add search bar in a v bubble attached to bestiary overlay button
+                searchBar.SetPosition(toggleOverlayButton.getX() + toggleOverlayButton.getWidth() + 20, toggleOverlayButton.getY() - 15);
+                searchBar.UpdateHoverState(mousePosition);
+                searchBar.Render(graphics, spriteManager, tooltipManager);
 
                 // TODO: Add prev/next buttons attached to search bar
 
                 // TODO: Add find closest button if shortest path is installed
 
                 // TODO: To be removed later, just here for testing to make sure coordinates are correct atm
-                coordinatesLabel.position(mapBottomBarBounds.x + mapBottomBarBounds.width - 185, mapBottomBarBounds.y + (mapBottomBarBounds.height / 2));
-                coordinatesLabel.text(mapPos.getX() + ", " + mapPos.getY());
+                coordinatesLabel.SetPosition(mapBottomBarBounds.x + mapBottomBarBounds.width - 185, mapBottomBarBounds.y + (mapBottomBarBounds.height / 2));
+                coordinatesLabel.SetText(mapPos.getX() + ", " + mapPos.getY());
                 coordinatesLabel.Render(graphics);
             }
         }
@@ -161,6 +171,13 @@ public class BestiaryMapOverlay extends Overlay {
                     if (bestiaryPoint != null)
                         worldMapPointManager.remove(bestiaryPoint);
                 }
+            }
+        }
+
+        if(overlayEnabled) {
+            if (searchBar.isHovered) {
+                searchFocused = !searchFocused;
+                searchBar.SetFocused(searchFocused);
             }
         }
     }
