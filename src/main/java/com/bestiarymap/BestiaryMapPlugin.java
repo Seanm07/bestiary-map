@@ -16,6 +16,8 @@ import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.overlay.OverlayManager;
 
+import net.runelite.client.input.KeyManager;
+
 @Slf4j
 @PluginDescriptor(
         name = "Bestiary Map"
@@ -36,16 +38,21 @@ public class BestiaryMapPlugin extends Plugin {
     @Inject
     private MonsterData monsterData;
 
+    @Inject
+    private KeyManager keyManager;
+
     @Override
     protected void startUp() throws Exception {
         monsterData.loadMonsterData();
 
         overlayManager.add(overlay);
+        keyManager.registerKeyListener(overlay.keyListener);
     }
 
     @Override
     protected void shutDown() throws Exception {
         overlayManager.remove(overlay);
+        keyManager.unregisterKeyListener(overlay.keyListener);
     }
 
     @Subscribe

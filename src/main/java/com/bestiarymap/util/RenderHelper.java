@@ -2,27 +2,37 @@ package com.bestiarymap.util;
 
 import lombok.Getter;
 import net.runelite.client.game.SpriteManager;
+import net.runelite.client.ui.FontManager;
+import net.runelite.client.ui.overlay.components.TextComponent;
 import net.runelite.client.ui.overlay.tooltip.Tooltip;
 import net.runelite.client.ui.overlay.tooltip.TooltipManager;
 
 import java.awt.*;
 import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
+import java.util.regex.Pattern;
 
 public final class RenderHelper {
-    private RenderHelper() {}
+    private RenderHelper() {
+    }
 
-    public enum Alignment { TOP_LEFT, LEFT, BOTTOM_LEFT, BOTTOM, BOTTOM_RIGHT, RIGHT, TOP_RIGHT, TOP, MIDDLE }
+    public enum Alignment {TOP_LEFT, LEFT, BOTTOM_LEFT, BOTTOM, BOTTOM_RIGHT, RIGHT, TOP_RIGHT, TOP, MIDDLE}
+
+    public enum FontStyle {NORMAL, SMALL, BOLD}
 
     public static class LabelBuilder {
         private String text;
-        @Getter private int x, y;
-        @Getter private int fontSize = 13;
+        @Getter
+        private int x, y;
+        @Getter
+        private FontStyle fontStyle = FontStyle.NORMAL;
         private Color color = Color.BLACK;
         private Alignment alignment = Alignment.BOTTOM_LEFT;
 
-        public LabelBuilder() {
+        // Use the runelite text component so we get the advantages of the osrs font features such as markup tags
+        private final TextComponent textComponent = new TextComponent();
 
+        public LabelBuilder() {
         }
 
         public LabelBuilder SetText(String text) {
@@ -36,8 +46,8 @@ public final class RenderHelper {
             return this;
         }
 
-        public LabelBuilder SetFontSize(int fontSize) {
-            this.fontSize = fontSize;
+        public LabelBuilder SetFontStyle(FontStyle fontStyle) {
+            this.fontStyle = fontStyle;
             return this;
         }
 
@@ -52,23 +62,36 @@ public final class RenderHelper {
         }
 
         public void Render(Graphics2D graphics) {
-            Font font = new Font(graphics.getFont().getFontName(), Font.PLAIN, fontSize);
+            Font font = FontManager.getDefaultFont();
+
+            switch (fontStyle) {
+                case NORMAL:
+                    font = FontManager.getRunescapeFont();
+                    break;
+                case SMALL:
+                    font = FontManager.getRunescapeSmallFont();
+                    break;
+                case BOLD:
+                    font = FontManager.getRunescapeBoldFont();
+                    break;
+            }
+
             graphics.setFont(font);
 
             Rectangle rect = GetRenderAlignment(graphics.getFontMetrics());
 
-            graphics.setRenderingHint(
-                    RenderingHints.KEY_TEXT_ANTIALIASING,
-                    RenderingHints.VALUE_TEXT_ANTIALIAS_ON
-            );
+            textComponent.setText(text);
+            textComponent.setPosition(new Point(rect.x, rect.y));
+            textComponent.setFont(font);
+            textComponent.setColor(color);
 
-            // Draw 1px downward black shadow
-            graphics.setColor(Color.BLACK);
-            graphics.drawString(text, rect.x + 1, rect.y + 1);
+            textComponent.render(graphics);
+        }
 
-            // Draw main text
-            graphics.setColor(color);
-            graphics.drawString(text, rect.x, rect.y);
+        private static final Pattern TAG_PATTERN = Pattern.compile("<[^>]*>");
+
+        public static String StripMarkup(String text) {
+            return TAG_PATTERN.matcher(text).replaceAll("");
         }
 
         private Rectangle GetRenderAlignment(FontMetrics font) {
@@ -76,9 +99,9 @@ public final class RenderHelper {
 
             // x alignment adjustments
             if (alignment == Alignment.RIGHT || alignment == Alignment.TOP_RIGHT || alignment == Alignment.BOTTOM_RIGHT) {
-                x -= font.stringWidth(text);
+                x -= font.stringWidth(StripMarkup(text));
             } else if (alignment == Alignment.TOP || alignment == Alignment.MIDDLE || alignment == Alignment.BOTTOM) {
-                x -= font.stringWidth(text) / 2;
+                x -= font.stringWidth(StripMarkup(text)) / 2;
             }
 
             // y alignment adjustments
@@ -95,7 +118,8 @@ public final class RenderHelper {
     public static class ButtonBuilder {
         private boolean isDirty;
 
-        @Getter private int x, y, width, height, spriteId = -1;
+        @Getter
+        private int x, y, width, height, spriteId = -1;
         private Alignment alignment = Alignment.TOP_LEFT;
 
         private Rectangle buttonRect;
@@ -123,7 +147,7 @@ public final class RenderHelper {
             return this;
         }
 
-        public ButtonBuilder SetIcon(int spriteId){
+        public ButtonBuilder SetIcon(int spriteId) {
             this.spriteId = spriteId;
             return this;
         }
@@ -138,13 +162,13 @@ public final class RenderHelper {
             // If the button has changed update the button bounds
             UpdateRenderAlignmentIfDirty();
 
-            if(spriteManager != null) {
+            if (spriteManager != null) {
                 // Button background
                 BufferedImage bgSprite = spriteManager.getSprite(isHovered || isToggledOn ? 897 : 1040, 0);
                 graphics.drawImage(bgSprite, buttonRect.x + 1, buttonRect.y + 1, buttonRect.width - 2, buttonRect.height - 2, null);
 
                 // Inner shadow edges (left > top > right > bottom)
-                for(int i=0;i < 4;i++){
+                for (int i = 0; i < 4; i++) {
                     Boolean leftOrRight = i == 0 || i == 2;
 
                     int curX = !leftOrRight ? buttonRect.x + EDGE_SPRITE_SIZE : (i == 0 ? buttonRect.x : buttonRect.x + buttonRect.width - EDGE_SPRITE_SIZE);
@@ -155,7 +179,7 @@ public final class RenderHelper {
                 }
 
                 // Metal inner corners (top left > top right > bottom left > bottom right)
-                for(int i=0;i < 4;i++){
+                for (int i = 0; i < 4; i++) {
                     int curX = i % 2 != 0 ? buttonRect.x + buttonRect.width - CORNER_SPRITE_SIZE : buttonRect.x;
                     int curY = i >= 2 ? buttonRect.y + buttonRect.height - CORNER_SPRITE_SIZE : buttonRect.y;
 
@@ -163,7 +187,7 @@ public final class RenderHelper {
                     graphics.drawImage(innerCornerSprite, curX, curY, CORNER_SPRITE_SIZE, CORNER_SPRITE_SIZE, null);
                 }
 
-                if(spriteId >= 0) {
+                if (spriteId >= 0) {
                     // Button icon
                     BufferedImage sprite = spriteManager.getSprite(spriteId, 0);
                     int spriteAspectRatio = sprite.getHeight() / sprite.getWidth();
@@ -177,24 +201,24 @@ public final class RenderHelper {
                 graphics.drawRect(buttonRect.x, buttonRect.y, buttonRect.width, buttonRect.height);
             }
 
-            if(isHovered && tooltipManager != null){
+            if (isHovered && tooltipManager != null) {
                 tooltipManager.add(new Tooltip((isToggledOn ? "Hide" : "Show") + " <col=ff9040>Bestiary Overlay</col>"));
             }
         }
 
-        public void UpdateHoverState(net.runelite.api.Point mouse){
+        public void UpdateHoverState(net.runelite.api.Point mouse) {
             // If the button has changed update the button bounds
             UpdateRenderAlignmentIfDirty();
 
             isHovered = buttonRect != null && buttonRect.contains(mouse.getX(), mouse.getY());
         }
 
-        public void SetToggledOn(Boolean toggledOn){
+        public void SetToggledOn(Boolean toggledOn) {
             isToggledOn = toggledOn;
         }
 
-        private void UpdateRenderAlignmentIfDirty(){
-            if(isDirty){
+        private void UpdateRenderAlignmentIfDirty() {
+            if (isDirty) {
                 buttonRect = GetRenderAlignment();
                 isDirty = false;
             }
@@ -224,10 +248,12 @@ public final class RenderHelper {
     public static class InputBuilder {
         private boolean isDirty;
 
-        @Getter private int x, y, width, height;
+        @Getter
+        private int x, y, width, height;
         private Alignment alignment = Alignment.TOP_LEFT;
 
-        private String placeholderLabel;
+        @Getter
+        private String placeholderLabel, inputString = "";
         private Rectangle buttonRect;
         public boolean isHovered, isFocused;
 
@@ -235,7 +261,7 @@ public final class RenderHelper {
 
         public InputBuilder() {
             label.SetAlignment(Alignment.MIDDLE);
-            label.SetColor(Color.decode("#9f9f9f"));
+            label.SetFontStyle(FontStyle.SMALL);
         }
 
         public InputBuilder SetPosition(int x, int y) {
@@ -263,11 +289,16 @@ public final class RenderHelper {
             return this;
         }
 
+        public InputBuilder SetInputString(String inputString) {
+            this.inputString = inputString;
+            return this;
+        }
+
         public void Render(Graphics2D graphics, SpriteManager spriteManager, TooltipManager tooltipManager) {
             // If the button has changed update the button bounds
             UpdateRenderAlignmentIfDirty();
 
-            if(spriteManager != null) {
+            if (spriteManager != null) {
                 // Down arrow sprite
                 BufferedImage arrowSprite = spriteManager.getSprite(1000, 0);
                 //graphics.drawImage(arrowSprite, buttonRect.x + 2, buttonRect.y + buttonRect.height, 20, 20, null);
@@ -279,14 +310,15 @@ public final class RenderHelper {
 
                 // Inner gray border
                 graphics.setColor(Color.decode("#474745"));
-                graphics.drawRect(buttonRect.x+1, buttonRect.y+1, buttonRect.width-2, buttonRect.height-2);
+                graphics.drawRect(buttonRect.x + 1, buttonRect.y + 1, buttonRect.width - 2, buttonRect.height - 2);
 
                 // Input background
                 BufferedImage bgSprite = spriteManager.getSprite(isHovered || isFocused ? 297 : 897, 0);
                 graphics.drawImage(bgSprite, buttonRect.x + 2, buttonRect.y + 2, buttonRect.width - 3, buttonRect.height - 3, null);
 
                 // Draw label
-                label.SetText(isFocused ? "<col=ff0000>*</col>" : placeholderLabel);
+                label.SetColor(Color.decode(isFocused ? "#ffffff" : "#9f9f9f"));
+                label.SetText(inputString.isEmpty() && !isFocused ? placeholderLabel : inputString + (isFocused ? "<col=ff0000>*" : "*"));
                 label.SetPosition(buttonRect.x + (buttonRect.width / 2), buttonRect.y + (buttonRect.height / 2));
                 label.Render(graphics);
             } else {
@@ -295,24 +327,24 @@ public final class RenderHelper {
                 graphics.drawRect(buttonRect.x, buttonRect.y, buttonRect.width, buttonRect.height);
             }
 
-            if(isHovered && tooltipManager != null){
+            if (isHovered && tooltipManager != null) {
                 tooltipManager.add(new Tooltip((isFocused ? "Quit" : placeholderLabel)));
             }
         }
 
-        public void UpdateHoverState(net.runelite.api.Point mouse){
+        public void UpdateHoverState(net.runelite.api.Point mouse) {
             // If the button has changed update the button bounds
             UpdateRenderAlignmentIfDirty();
 
             isHovered = buttonRect != null && buttonRect.contains(mouse.getX(), mouse.getY());
         }
 
-        public void SetFocused(Boolean focused){
+        public void SetFocused(Boolean focused) {
             isFocused = focused;
         }
 
-        private void UpdateRenderAlignmentIfDirty(){
-            if(isDirty){
+        private void UpdateRenderAlignmentIfDirty() {
+            if (isDirty) {
                 buttonRect = GetRenderAlignment();
                 isDirty = false;
             }
@@ -339,7 +371,7 @@ public final class RenderHelper {
         }
     }
 
-    public static void DrawRotatedSprite(Graphics2D graphics, BufferedImage sprite, int x, int y, int width, int height, double angleDegrees){
+    public static void DrawRotatedSprite(Graphics2D graphics, BufferedImage sprite, int x, int y, int width, int height, double angleDegrees) {
         AffineTransform transform = new AffineTransform();
 
         // Set origin to center of canvas
