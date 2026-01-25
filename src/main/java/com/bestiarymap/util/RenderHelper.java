@@ -21,9 +21,9 @@ public final class RenderHelper {
     public enum FontStyle {NORMAL, SMALL, BOLD}
 
     public static class LabelBuilder {
-        private String text;
+        private String text, renderedText;
         @Getter
-        private int x, y;
+        private int x, y, maxWidth;
         @Getter
         private FontStyle fontStyle = FontStyle.NORMAL;
         private Color color = Color.BLACK;
@@ -37,6 +37,7 @@ public final class RenderHelper {
 
         public LabelBuilder SetText(String text) {
             this.text = text;
+            renderedText = text;
             return this;
         }
 
@@ -48,6 +49,11 @@ public final class RenderHelper {
 
         public LabelBuilder SetFontStyle(FontStyle fontStyle) {
             this.fontStyle = fontStyle;
+            return this;
+        }
+
+        public LabelBuilder SetMaxWidth(int maxWidth){
+            this.maxWidth = maxWidth;
             return this;
         }
 
@@ -78,9 +84,21 @@ public final class RenderHelper {
 
             graphics.setFont(font);
 
-            Rectangle rect = GetRenderAlignment(graphics.getFontMetrics());
+            FontMetrics fontMetrics = graphics.getFontMetrics();
 
-            textComponent.setText(text);
+            // If the font width is wider than max width trim the start of the string and replace with ellipsis
+            if(maxWidth > 0 && fontMetrics.stringWidth(StripMarkup(renderedText)) > maxWidth){
+                while(renderedText.length() > 3 && fontMetrics.stringWidth(StripMarkup(renderedText)) > maxWidth){
+                    renderedText = renderedText.substring(1);
+                }
+
+                // Replace the first 2 characters with ellipsis
+                renderedText = ".." + renderedText.substring(2);
+            }
+
+            Rectangle rect = GetRenderAlignment(fontMetrics);
+
+            textComponent.setText(renderedText);
             textComponent.setPosition(new Point(rect.x, rect.y));
             textComponent.setFont(font);
             textComponent.setColor(color);
@@ -99,9 +117,9 @@ public final class RenderHelper {
 
             // x alignment adjustments
             if (alignment == Alignment.RIGHT || alignment == Alignment.TOP_RIGHT || alignment == Alignment.BOTTOM_RIGHT) {
-                x -= font.stringWidth(StripMarkup(text));
+                x -= font.stringWidth(StripMarkup(renderedText));
             } else if (alignment == Alignment.TOP || alignment == Alignment.MIDDLE || alignment == Alignment.BOTTOM) {
-                x -= font.stringWidth(StripMarkup(text)) / 2;
+                x -= font.stringWidth(StripMarkup(renderedText)) / 2;
             }
 
             // y alignment adjustments
@@ -111,7 +129,7 @@ public final class RenderHelper {
                 y += font.getAscent() / 2;
             }
 
-            return new Rectangle(x, y, font.stringWidth(text), font.getHeight());
+            return new Rectangle(x, y, font.stringWidth(StripMarkup(renderedText)), font.getHeight());
         }
     }
 
@@ -319,6 +337,7 @@ public final class RenderHelper {
                 // Draw label
                 label.SetColor(Color.decode(isFocused ? "#ffffff" : "#9f9f9f"));
                 label.SetText(inputString.isEmpty() && !isFocused ? placeholderLabel : inputString + (isFocused ? "<col=ff0000>*" : "*"));
+                label.SetMaxWidth(buttonRect.width); // If the string is too long characters at the strip will be trimmed with ellipsis
                 label.SetPosition(buttonRect.x + (buttonRect.width / 2), buttonRect.y + (buttonRect.height / 2));
                 label.Render(graphics);
             } else {
