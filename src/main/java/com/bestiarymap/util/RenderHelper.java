@@ -21,6 +21,13 @@ public final class RenderHelper {
     public enum FontStyle {NORMAL, SMALL, BOLD}
 
     public static class LabelBuilder {
+        private boolean isDirty;
+
+        // Raw x and y input before alignment transform
+        private int inputX, inputY;
+
+        private Rectangle labelRect;
+
         private String text, renderedText;
         @Getter
         private int x, y, maxWidth;
@@ -38,22 +45,26 @@ public final class RenderHelper {
         public LabelBuilder SetText(String text) {
             this.text = text;
             renderedText = text;
+            isDirty = true;
             return this;
         }
 
         public LabelBuilder SetPosition(int x, int y) {
-            this.x = x;
-            this.y = y;
+            this.inputX = x;
+            this.inputY = y;
+            isDirty = true;
             return this;
         }
 
         public LabelBuilder SetFontStyle(FontStyle fontStyle) {
             this.fontStyle = fontStyle;
+            isDirty = true;
             return this;
         }
 
         public LabelBuilder SetMaxWidth(int maxWidth){
             this.maxWidth = maxWidth;
+            isDirty = true;
             return this;
         }
 
@@ -64,6 +75,7 @@ public final class RenderHelper {
 
         public LabelBuilder SetAlignment(Alignment alignment) {
             this.alignment = alignment;
+            isDirty = true;
             return this;
         }
 
@@ -96,10 +108,13 @@ public final class RenderHelper {
                 renderedText = ".." + renderedText.substring(2);
             }
 
-            Rectangle rect = GetRenderAlignment(fontMetrics);
+            if(isDirty) {
+                labelRect = GetRenderAlignment(fontMetrics);
+                isDirty = false;
+            }
 
             textComponent.setText(renderedText);
-            textComponent.setPosition(new Point(rect.x, rect.y));
+            textComponent.setPosition(new Point(labelRect.x, labelRect.y));
             textComponent.setFont(font);
             textComponent.setColor(color);
 
@@ -114,6 +129,8 @@ public final class RenderHelper {
 
         private Rectangle GetRenderAlignment(FontMetrics font) {
             // drawn from bottom left (text baseline) by default
+            x = inputX;
+            y = inputY;
 
             // x alignment adjustments
             if (alignment == Alignment.RIGHT || alignment == Alignment.TOP_RIGHT || alignment == Alignment.BOTTOM_RIGHT) {
@@ -136,9 +153,13 @@ public final class RenderHelper {
     public static class ButtonBuilder {
         private boolean isDirty;
 
+        // Raw x and y input before alignment transform
+        private int inputX, inputY;
+
         @Getter
-        private int x, y, width, height, spriteId = -1;
+        private int x, y, width, height, degreeRotation, spriteId = -1;
         private Alignment alignment = Alignment.TOP_LEFT;
+        private String tooltip = "";
 
         private Rectangle buttonRect;
         public boolean isHovered, isToggledOn;
@@ -152,9 +173,11 @@ public final class RenderHelper {
         }
 
         public ButtonBuilder SetPosition(int x, int y) {
-            this.x = x;
-            this.y = y;
+            this.inputX = x;
+            this.inputY = y;
             isDirty = true;
+
+            UpdateRenderAlignmentIfDirty();
             return this;
         }
 
@@ -167,6 +190,16 @@ public final class RenderHelper {
 
         public ButtonBuilder SetIcon(int spriteId) {
             this.spriteId = spriteId;
+            return this;
+        }
+
+        public ButtonBuilder SetTooltip(String tooltip){
+            this.tooltip = tooltip;
+            return this;
+        }
+
+        public ButtonBuilder SetIconRotation(int degreeRotation){
+            this.degreeRotation = degreeRotation;
             return this;
         }
 
@@ -208,10 +241,11 @@ public final class RenderHelper {
                 if (spriteId >= 0) {
                     // Button icon
                     BufferedImage sprite = spriteManager.getSprite(spriteId, 0);
+
                     int spriteAspectRatio = sprite.getHeight() / sprite.getWidth();
                     int spriteHeight = buttonRect.height - (EDGE_SPRITE_SIZE * 2);
                     int spriteWidth = spriteHeight * spriteAspectRatio;
-                    graphics.drawImage(sprite, buttonRect.x + ((buttonRect.width - spriteWidth) / 2), buttonRect.y + ICON_PADDING, spriteWidth, spriteHeight, null);
+                    DrawRotatedSprite(graphics, sprite, buttonRect.x + ((buttonRect.width - spriteWidth) / 2), buttonRect.y + ICON_PADDING, spriteWidth, spriteHeight, degreeRotation);
                 }
             } else {
                 // Fallback to just drawing a red box
@@ -219,8 +253,8 @@ public final class RenderHelper {
                 graphics.drawRect(buttonRect.x, buttonRect.y, buttonRect.width, buttonRect.height);
             }
 
-            if (isHovered && tooltipManager != null) {
-                tooltipManager.add(new Tooltip((isToggledOn ? "Hide" : "Show") + " <col=ff9040>Bestiary Overlay</col>"));
+            if (isHovered && tooltipManager != null && !tooltip.isEmpty()) {
+                tooltipManager.add(new Tooltip((isToggledOn ? "Hide" : "Show") + " <col=ff9040>" + tooltip + "</col>"));
             }
         }
 
@@ -244,6 +278,8 @@ public final class RenderHelper {
 
         private Rectangle GetRenderAlignment() {
             // drawn from top left by default
+            x = inputX;
+            y = inputY;
 
             // x alignment adjustments
             if (alignment == Alignment.RIGHT || alignment == Alignment.TOP_RIGHT || alignment == Alignment.BOTTOM_RIGHT) {
@@ -266,6 +302,9 @@ public final class RenderHelper {
     public static class InputBuilder {
         private boolean isDirty;
 
+        // Raw x and y input before alignment transform
+        private int inputX, inputY;
+
         @Getter
         private int x, y, width, height;
         private Alignment alignment = Alignment.TOP_LEFT;
@@ -283,8 +322,8 @@ public final class RenderHelper {
         }
 
         public InputBuilder SetPosition(int x, int y) {
-            this.x = x;
-            this.y = y;
+            this.inputX = x;
+            this.inputY = y;
             isDirty = true;
             return this;
         }
@@ -372,6 +411,9 @@ public final class RenderHelper {
         private Rectangle GetRenderAlignment() {
             // drawn from top left by default
 
+            x = inputX;
+            y = inputY;
+
             // x alignment adjustments
             if (alignment == Alignment.RIGHT || alignment == Alignment.TOP_RIGHT || alignment == Alignment.BOTTOM_RIGHT) {
                 x -= width;
@@ -402,8 +444,21 @@ public final class RenderHelper {
         // Move origin back to top left of sprite
         transform.translate(-width / 2, -height / 2);
 
+        // Scale the size of the sprite
+        transform.scale((double) width / sprite.getWidth(), (double) height / sprite.getHeight());
+
         // Draw the sprite with the new transform applied
         graphics.drawImage(sprite, transform, null);
+    }
+
+    // Placeholder function
+    public static BufferedImage DrawDot() {
+        BufferedImage img = new BufferedImage(8, 8, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = img.createGraphics();
+        g.setColor(Color.RED);
+        g.fillOval(0, 0, 8, 8);
+        g.dispose();
+        return img;
     }
 
 }

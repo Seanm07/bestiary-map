@@ -24,9 +24,6 @@ import net.runelite.client.input.KeyManager;
 )
 public class BestiaryMapPlugin extends Plugin {
     @Inject
-    private Client client;
-
-    @Inject
     private BestiaryMapConfig config;
 
     @Inject

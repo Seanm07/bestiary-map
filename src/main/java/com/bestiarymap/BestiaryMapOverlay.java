@@ -52,8 +52,8 @@ public class BestiaryMapOverlay extends Overlay {
     @Inject
     private ClientThread clientThread;
 
-    private LabelBuilder coordinatesLabel;
-    private ButtonBuilder toggleOverlayButton;
+    private LabelBuilder groupNumLabel;
+    private ButtonBuilder toggleOverlayButton, previousButton, nextButton;
     private InputBuilder searchBar;
 
     @Inject
@@ -65,7 +65,8 @@ public class BestiaryMapOverlay extends Overlay {
     private static final WidgetMenuOption BESTIARY_SHOW_OPTION = new WidgetMenuOption("Show", "Bestiary Overlay", WidgetInfo.WORLD_MAP_BOTTOM_BAR);
     private static final WidgetMenuOption BESTIARY_HIDE_OPTION = new WidgetMenuOption("Hide", "Bestiary Overlay", WidgetInfo.WORLD_MAP_BOTTOM_BAR);
 
-    private enum MenuOptionState { NONE, SHOW, HIDE }
+    private enum MenuOptionState {NONE, SHOW, HIDE}
+
     private MenuOptionState menuOptionState = MenuOptionState.NONE;
 
     @Inject
@@ -73,22 +74,38 @@ public class BestiaryMapOverlay extends Overlay {
         this.client = client;
         setLayer(OverlayLayer.ABOVE_WIDGETS);
 
-        // Temporary coordinates label on world map to be removed later
-        coordinatesLabel = new LabelBuilder()
-                .SetColor(Color.WHITE)
-                .SetAlignment(Alignment.RIGHT);
-
         // Button to toggle the world map bestiary overlay
         toggleOverlayButton = new ButtonBuilder()
-                .SetSize(36, 24)
-                .SetIcon(579)
-                .SetAlignment(Alignment.RIGHT);
+            .SetSize(36, 24)
+            .SetIcon(579)
+            .SetTooltip("Bestiary Overlay")
+            .SetAlignment(Alignment.RIGHT);
 
         // Search bar to filter monster names
         searchBar = new InputBuilder()
-                .SetSize(200, 20)
-                .SetPlaceholderLabel("Monster Search")
-                .SetAlignment(Alignment.BOTTOM_RIGHT);
+            .SetSize(200, 20)
+            .SetPlaceholderLabel("Monster Search")
+            .SetAlignment(Alignment.BOTTOM_RIGHT);
+
+        // Button to jump to previous group of searched monsters
+        previousButton = new ButtonBuilder()
+            .SetSize(16, 16)
+            .SetIcon(788)
+            .SetIconRotation(90)
+            .SetAlignment(Alignment.LEFT);
+
+        // Button to jump to next group of searched monsters
+        nextButton = new ButtonBuilder()
+            .SetSize(16, 16)
+            .SetIcon(788)
+            .SetIconRotation(-90)
+            .SetAlignment(Alignment.LEFT);
+
+        // Label showing current focus and total groups
+        groupNumLabel = new LabelBuilder()
+            .SetAlignment(Alignment.BOTTOM)
+            .SetFontStyle(FontStyle.SMALL)
+            .SetColor(Color.YELLOW);
     }
 
     @Override
@@ -98,73 +115,75 @@ public class BestiaryMapOverlay extends Overlay {
         // Reset the transform origins so we draw on the full canvas and don't get pushed by other widgets
         graphics.setTransform(new AffineTransform());
 
-        WorldMap worldMap = client.getWorldMap();
+        Widget worldmapBottomBarWidget = client.getWidget(WidgetInfo.WORLD_MAP_BOTTOM_BAR);
+        if (worldmapBottomBarWidget == null)
+            return null;
+
+        Rectangle mapBottomBarBounds = worldmapBottomBarWidget.getBounds();
+
+        Widget worldmapZoomOutWidget = client.getWidget(38993947); // Map zoom out button
+        if (worldmapZoomOutWidget == null)
+            return null;
+
         Point mousePosition = client.getMouseCanvasPosition();
 
-        // Only render map overlays once we have a valid world map ref
-        if (worldMap != null) {
-            Point mapPos = worldMap.getWorldMapPosition();
+        Rectangle zoomOutButtonBounds = worldmapZoomOutWidget.getBounds();
 
-            Widget worldmapBottomBarWidget = client.getWidget(WidgetInfo.WORLD_MAP_BOTTOM_BAR);
-            if (worldmapBottomBarWidget == null)
-                return null;
+        toggleOverlayButton.SetPosition(zoomOutButtonBounds.x - 5, mapBottomBarBounds.y + (mapBottomBarBounds.height / 2));
+        toggleOverlayButton.UpdateHoverState(mousePosition);
 
-            Rectangle mapBottomBarBounds = worldmapBottomBarWidget.getBounds();
+        if (toggleOverlayButton.isHovered) {
+            if (menuOptionState == MenuOptionState.NONE) {
+                if (overlayEnabled) {
+                    System.out.println("Hide menu option added");
 
-            Widget worldmapZoomOutWidget = client.getWidget(38993947); // Map zoom out button
-            if (worldmapZoomOutWidget == null)
-                return null;
+                    // TODO: Not working
+                    client.createMenuEntry(-1).setOption("hide bestiary menu").setType(MenuAction.RUNELITE).onClick(e -> HideOverlay(null));
 
-            Rectangle zoomOutButtonBounds = worldmapZoomOutWidget.getBounds();
+                    // Also doesn't work
+                    menuManager.addManagedCustomMenu(BESTIARY_HIDE_OPTION, this::HideOverlay);
+                    menuOptionState = MenuOptionState.HIDE;
+                } else {
+                    System.out.println("Show menu option added");
 
-            toggleOverlayButton.SetPosition(zoomOutButtonBounds.x - 5, mapBottomBarBounds.y + (mapBottomBarBounds.height / 2));
-            toggleOverlayButton.UpdateHoverState(mousePosition);
-
-            if(toggleOverlayButton.isHovered){
-                if(menuOptionState == MenuOptionState.NONE) {
-                    if(overlayEnabled){
-                        System.out.println("Hide menu option added");
-
-                        client.createMenuEntry(-1).setOption("hide bestiary menu").setType(MenuAction.RUNELITE).onClick(e -> HideOverlay(null));
-
-                        menuManager.addManagedCustomMenu(BESTIARY_HIDE_OPTION, this::HideOverlay);
-                        menuOptionState = MenuOptionState.HIDE;
-                    } else {
-                        System.out.println("Show menu option added");
-
-                        menuManager.addManagedCustomMenu(BESTIARY_SHOW_OPTION, this::ShowOverlay);
-                        menuOptionState = MenuOptionState.SHOW;
-                    }
+                    // Broken
+                    menuManager.addManagedCustomMenu(BESTIARY_SHOW_OPTION, this::ShowOverlay);
+                    menuOptionState = MenuOptionState.SHOW;
                 }
-            } else if(menuOptionState != MenuOptionState.NONE) {
-                System.out.println("cleared menu options");
+            }
+        } else if (menuOptionState != MenuOptionState.NONE) {
+            System.out.println("cleared menu options");
 
-                if(menuOptionState == MenuOptionState.SHOW) {
-                    menuManager.removeManagedCustomMenu(BESTIARY_SHOW_OPTION);
-                } else if(menuOptionState == MenuOptionState.HIDE){
-                    menuManager.removeManagedCustomMenu(BESTIARY_HIDE_OPTION);
-                }
-
-                menuOptionState = MenuOptionState.NONE;
+            if (menuOptionState == MenuOptionState.SHOW) {
+                menuManager.removeManagedCustomMenu(BESTIARY_SHOW_OPTION);
+            } else if (menuOptionState == MenuOptionState.HIDE) {
+                menuManager.removeManagedCustomMenu(BESTIARY_HIDE_OPTION);
             }
 
-            toggleOverlayButton.Render(graphics, spriteManager, tooltipManager);
+            menuOptionState = MenuOptionState.NONE;
+        }
 
-            if (overlayEnabled) {
-                // TODO: Add search bar in a v bubble attached to bestiary overlay button
-                searchBar.SetPosition(toggleOverlayButton.getX() + toggleOverlayButton.getWidth() + 20, toggleOverlayButton.getY() - 15);
-                searchBar.UpdateHoverState(mousePosition);
-                searchBar.Render(graphics, spriteManager, tooltipManager);
+        toggleOverlayButton.Render(graphics, spriteManager, tooltipManager);
 
-                // TODO: Add prev/next buttons attached to search bar
+        if (overlayEnabled) {
+            // TODO: Add search bar in a v bubble attached to bestiary overlay button
+            searchBar.SetPosition(toggleOverlayButton.getX() + toggleOverlayButton.getWidth() + 20, toggleOverlayButton.getY() - 15);
+            searchBar.UpdateHoverState(mousePosition);
+            searchBar.Render(graphics, spriteManager, tooltipManager);
 
-                // TODO: Add find closest button if shortest path is installed
+            // TODO: Add prev/next buttons attached to search bar
+            previousButton.SetPosition(searchBar.getX() + searchBar.getWidth() + 6, searchBar.getY() + (searchBar.getHeight() / 2));
+            previousButton.UpdateHoverState(mousePosition);
+            previousButton.Render(graphics, spriteManager, tooltipManager);
 
-                // TODO: To be removed later, just here for testing to make sure coordinates are correct atm
-                coordinatesLabel.SetPosition(mapBottomBarBounds.x + mapBottomBarBounds.width - 185, mapBottomBarBounds.y + (mapBottomBarBounds.height / 2));
-                coordinatesLabel.SetText(mapPos.getX() + ", " + mapPos.getY());
-                coordinatesLabel.Render(graphics);
-            }
+            nextButton.SetPosition(previousButton.getX() + previousButton.getWidth() + 6, searchBar.getY() + (searchBar.getHeight() / 2));
+            nextButton.UpdateHoverState(mousePosition);
+            nextButton.Render(graphics, spriteManager, tooltipManager);
+
+            groupNumLabel.SetPosition(previousButton.getX() + previousButton.getWidth() + 3, searchBar.getY());
+            groupNumLabel.Render(graphics);
+
+            // TODO: Add find closest button if shortest path is installed?
         }
 
         //client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Map position: " + mapPosition.toString(), null);
@@ -175,23 +194,14 @@ public class BestiaryMapOverlay extends Overlay {
         return null;
     }
 
-    // TODO: Move to RenderHelper (although current form is placeholder for testing)
-    private BufferedImage createDot() {
-        BufferedImage img = new BufferedImage(8, 8, BufferedImage.TYPE_INT_ARGB);
-        Graphics2D g = img.createGraphics();
-        g.setColor(Color.RED);
-        g.fillOval(0, 0, 8, 8);
-        g.dispose();
-        return img;
-    }
-
     private List<WorldMapPoint> bestiaryPoints;
+    private List<WorldMapPoint> bestiaryGroups;
 
     public void OnClick(MenuOptionClicked event) {
         // TODO: Find out what I need to do to get my widget recognised by MenuOptionClicked
 
         if (toggleOverlayButton.isHovered) {
-            if(overlayEnabled){
+            if (overlayEnabled) {
                 HideOverlay(null);
             } else {
                 ShowOverlay(null);
@@ -202,69 +212,118 @@ public class BestiaryMapOverlay extends Overlay {
             if (searchBar.isHovered) {
                 // Set search focus when clicked
                 SetSearchFocus(!searchFocused);
-            } else if(searchFocused){
+            } else if (searchFocused) {
                 // Force lose search bar focus when clicking off it
                 SetSearchFocus(false);
+            } else if (previousButton.isHovered) {
+                MapJumpPreviousGroup();
+            } else if (nextButton.isHovered) {
+                MapJumpNextGroup();
             }
         }
     }
 
-    private void ShowOverlay(MenuEntry menuEntry){
+    private void ShowOverlay(MenuEntry menuEntry) {
         overlayEnabled = true;
         toggleOverlayButton.SetToggledOn(true);
 
         GenerateBestiaryPoints();
     }
 
-    private void HideOverlay(MenuEntry menuEntry){
+    private void HideOverlay(MenuEntry menuEntry) {
         overlayEnabled = false;
         toggleOverlayButton.SetToggledOn(false);
 
         ClearBestiaryPoints();
     }
 
-    private void RefreshBestiaryPoints(){
+    private void RefreshBestiaryPoints() {
         ClearBestiaryPoints();
 
         GenerateBestiaryPoints();
     }
 
-    private void GenerateBestiaryPoints(){
+    private void GenerateBestiaryPoints() {
         bestiaryPoints = new ArrayList<>();
+        bestiaryGroups = new ArrayList<>();
 
         // TODO: Once bestiary search is implemented only show monsters matching search filter
         for (Monster monster : monsterData.getMonsters()) {
             if (monster.getSpawns().isEmpty())
                 continue;
 
-            if(!monster.getName().toLowerCase().contains(searchBar.getInputString().toLowerCase()))
+            if (!monster.getName().toLowerCase().contains(searchBar.getInputString().toLowerCase()))
                 continue;
 
             for (Spawn spawn : monster.getSpawns()) {
                 int mapId = spawn.getM();
+
+                // TODO: Replace this 0 with the map currently being looked at on the worldMap
+                if(mapId != 0)
+                    continue;
+
                 int x = spawn.getX();
                 int y = spawn.getY();
 
-                // TODO: createDot() is temporary for testing
-                WorldMapPoint newMapPoint = new WorldMapPoint(new WorldPoint(x, y, mapId), createDot());
+                WorldMapPoint newMapPoint = new WorldMapPoint(new WorldPoint(x, y, mapId), DrawDot());
 
                 newMapPoint.setName(monster.getName());
                 newMapPoint.setJumpOnClick(true);
 
                 bestiaryPoints.add(newMapPoint); // Add the point to the list so we can clean it up later
                 worldMapPointManager.add(newMapPoint); // Add the point to the worldMapPointManager to actually display it
+
+                AddToBestiaryGroupIfNotWithinRange(newMapPoint, 100);
             }
         }
+
+        activeMapTarget = 0;
+        groupNumLabel.SetText((activeMapTarget + 1) + " / " + bestiaryGroups.size());
     }
 
-    private void ClearBestiaryPoints(){
+    private void AddToBestiaryGroupIfNotWithinRange(WorldMapPoint point, int range) {
+        WorldPoint newPoint = point.getWorldPoint();
+
+        for (WorldMapPoint existing : bestiaryGroups) {
+            WorldPoint existingPoint = existing.getWorldPoint();
+
+            // Already in range of an existing group, don't add this point
+            if (existingPoint.distanceTo(newPoint) <= range)
+                return;
+        }
+
+        bestiaryGroups.add(point);
+    }
+
+
+    private void ClearBestiaryPoints() {
         for (WorldMapPoint bestiaryPoint : bestiaryPoints) {
             if (bestiaryPoint != null)
                 worldMapPointManager.remove(bestiaryPoint);
         }
     }
 
-    private void SetSearchFocus(boolean focused){
+    private int activeMapTarget = 0;
+
+    private void MapJumpPreviousGroup() {
+        activeMapTarget = activeMapTarget - 1 < 0 ? bestiaryGroups.size() - 1 : activeMapTarget - 1;
+        groupNumLabel.SetText((activeMapTarget + 1) + " / " + bestiaryGroups.size());
+
+        WorldMap worldMap = client.getWorldMap();
+
+        worldMap.setWorldMapPositionTarget(bestiaryGroups.get(activeMapTarget).getWorldPoint());
+    }
+
+    private void MapJumpNextGroup() {
+        activeMapTarget = activeMapTarget + 1 >= bestiaryGroups.size() ? 0 : activeMapTarget + 1;
+        groupNumLabel.SetText((activeMapTarget + 1) + " / " + bestiaryGroups.size());
+
+        WorldMap worldMap = client.getWorldMap();
+
+        worldMap.setWorldMapPositionTarget(bestiaryGroups.get(activeMapTarget).getWorldPoint());
+    }
+
+    private void SetSearchFocus(boolean focused) {
         searchFocused = focused;
         searchBar.SetFocused(focused);
 
@@ -313,6 +372,7 @@ public class BestiaryMapOverlay extends Overlay {
         }
 
         @Override
-        public void keyReleased(KeyEvent e) {}
+        public void keyReleased(KeyEvent e) {
+        }
     };
 }
