@@ -28,6 +28,7 @@ public final class RenderHelper {
 
         private Rectangle labelRect;
 
+        @Getter
         private String text, renderedText;
         @Getter
         private int x, y, maxWidth;

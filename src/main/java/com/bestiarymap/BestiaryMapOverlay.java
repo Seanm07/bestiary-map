@@ -247,7 +247,9 @@ public class BestiaryMapOverlay extends Overlay {
         bestiaryPoints = new ArrayList<>();
         bestiaryGroups = new ArrayList<>();
 
-        // TODO: Once bestiary search is implemented only show monsters matching search filter
+        // TODO: Change this to plane of active map opened rather than plane the player is physically in
+        int activeMap = client.getLocalPlayer().getWorldLocation().getPlane();
+
         for (Monster monster : monsterData.getMonsters()) {
             if (monster.getSpawns().isEmpty())
                 continue;
@@ -258,9 +260,10 @@ public class BestiaryMapOverlay extends Overlay {
             for (Spawn spawn : monster.getSpawns()) {
                 int mapId = spawn.getM();
 
-                // TODO: Replace this 0 with the map currently being looked at on the worldMap
-                if(mapId != 0)
-                    continue;
+                // TODO: Use checkbox for if we should only add spawns to current focused map
+                // TODO: Find how to get active map open in the world map window
+                //if(mapId != activeMap)
+                //    continue;
 
                 int x = spawn.getX();
                 int y = spawn.getY();
@@ -303,24 +306,49 @@ public class BestiaryMapOverlay extends Overlay {
         }
     }
 
+    // TODO: Add support for maps in range 10000 if possible?
+    // TODO: Why are some spawns set to map id -1?
+    private void SetWorldMapId(int mapId){
+        Widget worldMapMapListItemWidget = client.getWidget(38993955); // 38993955 is the component id of the map dropdown menu list container
+        Widget childWidget = worldMapMapListItemWidget.getChild(1); // "Gielinor Surface" child button
+
+        // Get the event for the jump to map button (event 1711) - decompiled event: https://github.com/runelite/cs2-scripts/blob/c9ac2fcbc09899c9b28a8e36398e7114ba432e3d/scripts/%5Bclientscript%2Cworldmap_maplist_select%5D.cs2#L1
+        Object[] worldMapJumpToMapEvent = childWidget.getOnOpListener();
+
+        ScriptEvent jumpToMap = client.createScriptEvent(worldMapJumpToMapEvent);
+
+        jumpToMap.getArguments()[1] = 1; // This was value "Integer.MIN_VALUE + 4" by default but there's an if check at the top of the function which instantly returns if it's not 1?
+        jumpToMap.getArguments()[2] = mapId; // The map id to jump to
+        jumpToMap.setSource(childWidget); // throws a warning if a source isn't set
+        jumpToMap.run();
+
+        // TODO: Remove this, it's just for debugging invalid maps
+        if(mapId < 0 || mapId > 51){
+            groupNumLabel.SetText(groupNumLabel.getText() + " <col=FF0000>INVALID MAP: " + mapId);
+        }
+    }
+
     private int activeMapTarget = 0;
 
     private void MapJumpPreviousGroup() {
         activeMapTarget = activeMapTarget - 1 < 0 ? bestiaryGroups.size() - 1 : activeMapTarget - 1;
-        groupNumLabel.SetText((activeMapTarget + 1) + " / " + bestiaryGroups.size());
-
-        WorldMap worldMap = client.getWorldMap();
-
-        worldMap.setWorldMapPositionTarget(bestiaryGroups.get(activeMapTarget).getWorldPoint());
+        JumpToActiveGroup();
     }
 
     private void MapJumpNextGroup() {
         activeMapTarget = activeMapTarget + 1 >= bestiaryGroups.size() ? 0 : activeMapTarget + 1;
+        JumpToActiveGroup();
+    }
+
+    private void JumpToActiveGroup(){
         groupNumLabel.SetText((activeMapTarget + 1) + " / " + bestiaryGroups.size());
 
         WorldMap worldMap = client.getWorldMap();
+        WorldPoint worldPoint = bestiaryGroups.get(activeMapTarget).getWorldPoint();
+        int targetMapId = worldPoint.getPlane();
 
-        worldMap.setWorldMapPositionTarget(bestiaryGroups.get(activeMapTarget).getWorldPoint());
+        SetWorldMapId(targetMapId);
+        worldMap.setWorldMapPositionTarget(worldPoint);
     }
 
     private void SetSearchFocus(boolean focused) {
@@ -358,12 +386,7 @@ public class BestiaryMapOverlay extends Overlay {
                 if (e.getKeyCode() == KeyEvent.VK_BACK_SPACE) {
                     String current = searchBar.getInputString();
 
-                    if (current.length() > 0) {
-                        searchBar.SetInputString(current.substring(0, current.length() - 1));
-                    } else {
-                        searchBar.SetInputString("");
-                    }
-
+                    searchBar.SetInputString(current.length() > 0 ? current.substring(0, current.length() - 1) : "");
                     RefreshBestiaryPoints();
                 } else if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
                     SetSearchFocus(false);
@@ -372,7 +395,6 @@ public class BestiaryMapOverlay extends Overlay {
         }
 
         @Override
-        public void keyReleased(KeyEvent e) {
-        }
+        public void keyReleased(KeyEvent e) { }
     };
 }
