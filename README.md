@@ -10,20 +10,20 @@ Some things shown are for placeholder or debugging purposes and will be changed 
 
 ### Planned features
 
--[x] Button to toggle the bestiary overlay on/off
--[x] Button tooltips and click events
--[x] Search box which functions similar to the existing world map search (with some improvements)
--[x] Search text input which doesn't type in chat or get affected by other key remapping plugins
--[x] Monster spawns shown as dots on map filtered by current search
--[x] Ability to click on monster spawns to jump to them
--[x] Left and right arrows next to the search box to jump between groups of spawns across the map [Preview Video](https://www.spacemeat.space/webm/java_dB4l3DqBGh.mp4)
--[x] Label to show current group focus and total groups
--[ ] **Render areas of monster spawns rather than just dots per monster spawn (in progress)**
--[ ] Search suggestions similar to existing world map red text suggestions as you type
--[ ] Hide other map markers while bestiary overlay enabled (togglable via plugin config)
--[ ] Better icon for showing monster spawns than a red dot (icons for each monster?)
--[ ] Checkbox for including map zones other than the current focus
--[ ] Right click menu options on the bestiary toggle button (currently implemented but not working)
--[ ] Cache the monster spawn data on serverside and clientside
--[ ] Automate serverside regeneration of the monster spawn data
--[ ] Support for monster spawns other than just "point" spawns? (Not sure if needed)
+- [x] Button to toggle the bestiary overlay on/off
+- [x] Button tooltips and click events
+- [x] Search box which functions similar to the existing world map search (with some improvements)
+- [x] Search text input which doesn't type in chat or get affected by other key remapping plugins
+- [x] Monster spawns shown as dots on map filtered by current search
+- [x] Ability to click on monster spawns to jump to them
+- [x] Left and right arrows next to the search box to jump between groups of spawns across the map [Preview Video](https://www.spacemeat.space/webm/java_dB4l3DqBGh.mp4)
+- [x] Label to show current group focus and total groups
+- [ ] **Render areas of monster spawns rather than just dots per monster spawn (in progress)**
+- [ ] Search suggestions similar to existing world map red text suggestions as you type
+- [ ] Hide other map markers while bestiary overlay enabled (togglable via plugin config)
+- [ ] Better icon for showing monster spawns than a red dot (icons for each monster?)
+- [ ] Checkbox for including map zones other than the current focus
+- [ ] Right click menu options on the bestiary toggle button (currently implemented but not working)
+- [ ] Cache the monster spawn data on serverside and clientside
+- [ ] Automate serverside regeneration of the monster spawn data
+- [ ] Support for monster spawns other than just "point" spawns? (Not sure if needed)
