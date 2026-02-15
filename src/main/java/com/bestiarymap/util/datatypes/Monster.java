@@ -1,4 +1,4 @@
-package com.bestiarymap.util;
+package com.bestiarymap.util.datatypes;
 
 import lombok.Getter;
 

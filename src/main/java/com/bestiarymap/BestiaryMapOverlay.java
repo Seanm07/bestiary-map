@@ -1,16 +1,16 @@
 package com.bestiarymap;
 
-import com.bestiarymap.util.Monster;
+import com.bestiarymap.util.datatypes.Monster;
 import com.bestiarymap.util.MonsterData;
-import com.bestiarymap.util.Spawn;
+import com.bestiarymap.util.datatypes.Spawn;
 import net.runelite.api.*;
+import net.runelite.api.Menu;
 import net.runelite.api.Point;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.MenuOptionClicked;
 import net.runelite.api.gameval.InterfaceID;
 import net.runelite.api.gameval.VarClientID;
 import net.runelite.api.widgets.Widget;
-import net.runelite.api.widgets.WidgetInfo;
 import net.runelite.api.worldmap.WorldMap;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.game.SpriteManager;
@@ -24,18 +24,20 @@ import net.runelite.client.ui.overlay.worldmap.WorldMapPointManager;
 import net.runelite.client.input.KeyListener;
 
 import static com.bestiarymap.util.RenderHelper.*;
+import com.bestiarymap.util.*;
 
 import javax.inject.Inject;
 import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.awt.geom.AffineTransform;
-import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
 public class BestiaryMapOverlay extends Overlay {
     private final Client client;
+
+    @Inject
+    private BestiaryMapConfig config;
 
     @Inject
     private SpriteManager spriteManager;
@@ -62,8 +64,8 @@ public class BestiaryMapOverlay extends Overlay {
     private Boolean overlayEnabled = false;
     private Boolean searchFocused = false;
 
-    private static final WidgetMenuOption BESTIARY_SHOW_OPTION = new WidgetMenuOption("Show", "Bestiary Overlay", WidgetInfo.WORLD_MAP_BOTTOM_BAR);
-    private static final WidgetMenuOption BESTIARY_HIDE_OPTION = new WidgetMenuOption("Hide", "Bestiary Overlay", WidgetInfo.WORLD_MAP_BOTTOM_BAR);
+    private static final WidgetMenuOption BESTIARY_SHOW_OPTION = new WidgetMenuOption("Show", "Bestiary Overlay", InterfaceID.Worldmap.BOTTOM_GRAPHIC0);
+    private static final WidgetMenuOption BESTIARY_HIDE_OPTION = new WidgetMenuOption("Hide", "Bestiary Overlay", InterfaceID.Worldmap.BOTTOM_GRAPHIC0);
 
     private enum MenuOptionState {NONE, SHOW, HIDE}
 
@@ -115,13 +117,13 @@ public class BestiaryMapOverlay extends Overlay {
         // Reset the transform origins so we draw on the full canvas and don't get pushed by other widgets
         graphics.setTransform(new AffineTransform());
 
-        Widget worldmapBottomBarWidget = client.getWidget(WidgetInfo.WORLD_MAP_BOTTOM_BAR);
+        Widget worldmapBottomBarWidget = client.getWidget(InterfaceID.Worldmap.BOTTOM_GRAPHIC0);
         if (worldmapBottomBarWidget == null)
             return null;
 
         Rectangle mapBottomBarBounds = worldmapBottomBarWidget.getBounds();
 
-        Widget worldmapZoomOutWidget = client.getWidget(38993947); // Map zoom out button
+        Widget worldmapZoomOutWidget = client.getWidget(InterfaceID.Worldmap.ZOOM_OUT); // Map zoom out button 38993947
         if (worldmapZoomOutWidget == null)
             return null;
 
@@ -137,8 +139,10 @@ public class BestiaryMapOverlay extends Overlay {
                 if (overlayEnabled) {
                     System.out.println("Hide menu option added");
 
+
+
                     // TODO: Not working
-                    client.createMenuEntry(-1).setOption("hide bestiary menu").setType(MenuAction.RUNELITE).onClick(e -> HideOverlay(null));
+                    //client.createMenuEntry(-1).setOption("hide bestiary menu").setType(MenuAction.RUNELITE).onClick(e -> HideOverlay(null));
 
                     // Also doesn't work
                     menuManager.addManagedCustomMenu(BESTIARY_HIDE_OPTION, this::HideOverlay);
@@ -184,6 +188,12 @@ public class BestiaryMapOverlay extends Overlay {
             groupNumLabel.Render(graphics);
 
             // TODO: Add find closest button if shortest path is installed?
+
+
+            // TODO: Need to actually draw this within the map bounds
+            // Draw a convex shape around each bestiary group
+            //for (BestiaryGroup group : bestiaryGroups)
+            //    drawOuterShape(graphics, group.spawnPoints);
         }
 
         //client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Map position: " + mapPosition.toString(), null);
@@ -195,7 +205,7 @@ public class BestiaryMapOverlay extends Overlay {
     }
 
     private List<WorldMapPoint> bestiaryPoints;
-    private List<WorldMapPoint> bestiaryGroups;
+    private List<BestiaryGroup> bestiaryGroups;
 
     public void OnClick(MenuOptionClicked event) {
         // TODO: Find out what I need to do to get my widget recognised by MenuOptionClicked
@@ -243,9 +253,21 @@ public class BestiaryMapOverlay extends Overlay {
         GenerateBestiaryPoints();
     }
 
+    private class BestiaryGroup {
+        WorldMapPoint centerPoint;
+        ArrayList<WorldPoint> spawnPoints;
+
+        public BestiaryGroup(WorldMapPoint centerPoint) {
+            this.centerPoint = centerPoint;
+
+            spawnPoints = new ArrayList<>();
+            spawnPoints.add(centerPoint.getWorldPoint());
+        }
+    }
+
     private void GenerateBestiaryPoints() {
-        bestiaryPoints = new ArrayList<>();
-        bestiaryGroups = new ArrayList<>();
+        bestiaryPoints = new ArrayList<WorldMapPoint>();
+        bestiaryGroups = new ArrayList<BestiaryGroup>();
 
         // TODO: Change this to plane of active map opened rather than plane the player is physically in
         int activeMap = client.getLocalPlayer().getWorldLocation().getPlane();
@@ -268,13 +290,16 @@ public class BestiaryMapOverlay extends Overlay {
                 int x = spawn.getX();
                 int y = spawn.getY();
 
-                WorldMapPoint newMapPoint = new WorldMapPoint(new WorldPoint(x, y, mapId), DrawDot());
+                WorldMapPoint newMapPoint = new WorldMapPoint(new WorldPoint(x, y, mapId), DrawDot(config.spawnColor()));
 
-                newMapPoint.setName(monster.getName());
-                newMapPoint.setJumpOnClick(true);
+                if(config.showIndividualSpawns()) {
+                    newMapPoint.setName(monster.getName());
+                    newMapPoint.setJumpOnClick(true);
 
-                bestiaryPoints.add(newMapPoint); // Add the point to the list so we can clean it up later
-                worldMapPointManager.add(newMapPoint); // Add the point to the worldMapPointManager to actually display it
+                    bestiaryPoints.add(newMapPoint); // Add the point to the list so we can clean it up later
+
+                    worldMapPointManager.add(newMapPoint); // Add the point to the worldMapPointManager to actually display it
+                }
 
                 AddToBestiaryGroupIfNotWithinRange(newMapPoint, 100);
             }
@@ -287,15 +312,22 @@ public class BestiaryMapOverlay extends Overlay {
     private void AddToBestiaryGroupIfNotWithinRange(WorldMapPoint point, int range) {
         WorldPoint newPoint = point.getWorldPoint();
 
-        for (WorldMapPoint existing : bestiaryGroups) {
-            WorldPoint existingPoint = existing.getWorldPoint();
+        for (BestiaryGroup existing : bestiaryGroups) {
+            WorldPoint existingPoint = existing.centerPoint.getWorldPoint();
 
             // Already in range of an existing group, don't add this point
-            if (existingPoint.distanceTo(newPoint) <= range)
+            if (existingPoint.distanceTo(newPoint) <= range) {
+                // Add this spawn point into this bestiary group
+                existing.spawnPoints.add(point.getWorldPoint());
+
+                // TODO: Update the center point of the group to the new center
+                //existing.centerPoint =
+
                 return;
+            }
         }
 
-        bestiaryGroups.add(point);
+        bestiaryGroups.add(new BestiaryGroup(point));
     }
 
 
@@ -309,7 +341,7 @@ public class BestiaryMapOverlay extends Overlay {
     // TODO: Add support for maps in range 10000 if possible?
     // TODO: Why are some spawns set to map id -1?
     private void SetWorldMapId(int mapId){
-        Widget worldMapMapListItemWidget = client.getWidget(38993955); // 38993955 is the component id of the map dropdown menu list container
+        Widget worldMapMapListItemWidget = client.getWidget(InterfaceID.Worldmap.MAPLIST_LIST); // 38993955 is the component id of the map dropdown menu list container
         Widget childWidget = worldMapMapListItemWidget.getChild(1); // "Gielinor Surface" child button
 
         // Get the event for the jump to map button (event 1711) - decompiled event: https://github.com/runelite/cs2-scripts/blob/c9ac2fcbc09899c9b28a8e36398e7114ba432e3d/scripts/%5Bclientscript%2Cworldmap_maplist_select%5D.cs2#L1
@@ -344,7 +376,7 @@ public class BestiaryMapOverlay extends Overlay {
         groupNumLabel.SetText((activeMapTarget + 1) + " / " + bestiaryGroups.size());
 
         WorldMap worldMap = client.getWorldMap();
-        WorldPoint worldPoint = bestiaryGroups.get(activeMapTarget).getWorldPoint();
+        WorldPoint worldPoint = bestiaryGroups.get(activeMapTarget).centerPoint.getWorldPoint();
         int targetMapId = worldPoint.getPlane();
 
         SetWorldMapId(targetMapId);

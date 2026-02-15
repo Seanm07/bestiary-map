@@ -1,5 +1,6 @@
 package com.bestiarymap.util;
 
+import com.bestiarymap.util.datatypes.Monster;
 import com.google.gson.Gson;
 import lombok.Getter;
 import okhttp3.OkHttpClient;
