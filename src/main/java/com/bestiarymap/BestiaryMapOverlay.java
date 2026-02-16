@@ -30,6 +30,7 @@ import javax.inject.Inject;
 import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.awt.geom.AffineTransform;
+import java.awt.geom.Area;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -112,24 +113,26 @@ public class BestiaryMapOverlay extends Overlay {
 
     @Override
     public Dimension render(Graphics2D graphics) {
-        AffineTransform originalTransform = graphics.getTransform();
-
-        // Reset the transform origins so we draw on the full canvas and don't get pushed by other widgets
-        graphics.setTransform(new AffineTransform());
-
         Widget worldmapBottomBarWidget = client.getWidget(InterfaceID.Worldmap.BOTTOM_GRAPHIC0);
+
+        // Return early if the worldmap bottom bar widget is not available (which means the world map isn't open)
         if (worldmapBottomBarWidget == null)
             return null;
 
-        Rectangle mapBottomBarBounds = worldmapBottomBarWidget.getBounds();
-
         Widget worldmapZoomOutWidget = client.getWidget(InterfaceID.Worldmap.ZOOM_OUT); // Map zoom out button 38993947
+
         if (worldmapZoomOutWidget == null)
             return null;
 
-        Point mousePosition = client.getMouseCanvasPosition();
+        AffineTransform originalTransform = graphics.getTransform();
+
+        // Reset the transform origins so we draw on the full screen canvas and don't get pushed by other widgets
+        graphics.setTransform(new AffineTransform());
 
         Rectangle zoomOutButtonBounds = worldmapZoomOutWidget.getBounds();
+        Rectangle mapBottomBarBounds = worldmapBottomBarWidget.getBounds();
+
+        Point mousePosition = client.getMouseCanvasPosition();
 
         toggleOverlayButton.SetPosition(zoomOutButtonBounds.x - 5, mapBottomBarBounds.y + (mapBottomBarBounds.height / 2));
         toggleOverlayButton.UpdateHoverState(mousePosition);
@@ -137,63 +140,67 @@ public class BestiaryMapOverlay extends Overlay {
         if (toggleOverlayButton.isHovered) {
             if (menuOptionState == MenuOptionState.NONE) {
                 if (overlayEnabled) {
-                    System.out.println("Hide menu option added");
-
-
-
-                    // TODO: Not working
-                    //client.createMenuEntry(-1).setOption("hide bestiary menu").setType(MenuAction.RUNELITE).onClick(e -> HideOverlay(null));
-
-                    // Also doesn't work
-                    menuManager.addManagedCustomMenu(BESTIARY_HIDE_OPTION, this::HideOverlay);
+                    // TODO: Add a hide bestiary menu option to right click menu
+                    // menuManager.addManagedCustomMenu(BESTIARY_HIDE_OPTION, this::HideOverlay); // not working
                     menuOptionState = MenuOptionState.HIDE;
                 } else {
-                    System.out.println("Show menu option added");
-
-                    // Broken
-                    menuManager.addManagedCustomMenu(BESTIARY_SHOW_OPTION, this::ShowOverlay);
+                    // TODO: Add a show bestiary menu option to right click menu
+                    // menuManager.addManagedCustomMenu(BESTIARY_SHOW_OPTION, this::ShowOverlay); // not working
                     menuOptionState = MenuOptionState.SHOW;
                 }
             }
         } else if (menuOptionState != MenuOptionState.NONE) {
-            System.out.println("cleared menu options");
-
-            if (menuOptionState == MenuOptionState.SHOW) {
-                menuManager.removeManagedCustomMenu(BESTIARY_SHOW_OPTION);
-            } else if (menuOptionState == MenuOptionState.HIDE) {
-                menuManager.removeManagedCustomMenu(BESTIARY_HIDE_OPTION);
-            }
-
+            // TODO: Clear the right click menu options
+            // menuManager.removeManagedCustomMenu(menuOptionState == MenuOptionState.SHOW ? BESTIARY_SHOW_OPTION : BESTIARY_HIDE_OPTION); // not working
             menuOptionState = MenuOptionState.NONE;
         }
 
         toggleOverlayButton.Render(graphics, spriteManager, tooltipManager);
 
         if (overlayEnabled) {
-            // TODO: Add search bar in a v bubble attached to bestiary overlay button
+            // Search bar user input field
             searchBar.SetPosition(toggleOverlayButton.getX() + toggleOverlayButton.getWidth() + 20, toggleOverlayButton.getY() - 15);
             searchBar.UpdateHoverState(mousePosition);
             searchBar.Render(graphics, spriteManager, tooltipManager);
 
-            // TODO: Add prev/next buttons attached to search bar
+            // Jump to previous monster group button
             previousButton.SetPosition(searchBar.getX() + searchBar.getWidth() + 6, searchBar.getY() + (searchBar.getHeight() / 2));
             previousButton.UpdateHoverState(mousePosition);
             previousButton.Render(graphics, spriteManager, tooltipManager);
 
+            // Jump to next monster group button
             nextButton.SetPosition(previousButton.getX() + previousButton.getWidth() + 6, searchBar.getY() + (searchBar.getHeight() / 2));
             nextButton.UpdateHoverState(mousePosition);
             nextButton.Render(graphics, spriteManager, tooltipManager);
 
+            // Label showing which monster group is focused out of how many total groups
             groupNumLabel.SetPosition(previousButton.getX() + previousButton.getWidth() + 3, searchBar.getY());
             groupNumLabel.Render(graphics);
 
             // TODO: Add find closest button if shortest path is installed?
 
 
+            // Draw monster zones onto world map
+            Rectangle worldMapRectangle = client.getWidget(InterfaceID.Worldmap.MAP_CONTAINER).getBounds();
+            Area worldMapClipArea =  GetWorldMapClipArea(client,worldMapRectangle);
+            graphics.setClip(worldMapClipArea);
+
+            // https://github.com/Skretzo/shortest-path/blob/master/src/main/java/shortestpath/PathMapOverlay.java
+            int mapWorldPoint = CalculateMapPoint(client, worldMapRectangle.x, worldMapRectangle.y);
+            int extentX = UnpackWorldX(mapWorldPoint);
+            int extentY = UnpackWorldY(mapWorldPoint);
+            int extentWidth = GetWorldMapExtentWidth(client, worldMapRectangle);
+            int extentHeight = GetWorldMapExtentHeight(client, worldMapRectangle);
+            final int z = client.getPlane();
+
             // TODO: Need to actually draw this within the map bounds
             // Draw a convex shape around each bestiary group
             //for (BestiaryGroup group : bestiaryGroups)
-            //    drawOuterShape(graphics, group.spawnPoints);
+            //    drawOuterShape(client, graphics, group.spawnPoints);
+
+            //WorldPoint testPoint = client.getLocalPlayer().getWorldLocation();
+
+            //drawWorldMapSquare(graphics, client.getRenderOverview());
         }
 
         //client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Map position: " + mapPosition.toString(), null);
