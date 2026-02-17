@@ -180,18 +180,27 @@ public class BestiaryMapOverlay extends Overlay {
             // TODO: Add find closest button if shortest path is installed?
 
 
-            // Draw monster zones onto world map
+            // Only render the following if it's visible within the worldMap rendered area
             Rectangle worldMapRectangle = client.getWidget(InterfaceID.Worldmap.MAP_CONTAINER).getBounds();
-            Area worldMapClipArea =  GetWorldMapClipArea(client,worldMapRectangle);
+            Area worldMapClipArea =  GetWorldMapClipArea(client, worldMapRectangle);
             graphics.setClip(worldMapClipArea);
 
-            // https://github.com/Skretzo/shortest-path/blob/master/src/main/java/shortestpath/PathMapOverlay.java
-            int mapWorldPoint = CalculateMapPoint(client, worldMapRectangle.x, worldMapRectangle.y);
-            int extentX = UnpackWorldX(mapWorldPoint);
-            int extentY = UnpackWorldY(mapWorldPoint);
-            int extentWidth = GetWorldMapExtentWidth(client, worldMapRectangle);
-            int extentHeight = GetWorldMapExtentHeight(client, worldMapRectangle);
-            final int z = client.getPlane();
+
+            WorldMap worldMap = client.getWorldMap();
+
+            net.runelite.api.Point mapPoint = worldMap.getWorldMapPosition();
+
+            int size = 8;
+
+            // Pack the coordinate into the map zone plane
+            int packedWorldPoint = PackWorldPoint(3150, 3500, 0);
+
+            // Convert the packed coordinates to UI space x and y positions
+            int xPos = MapWorldPointToGraphicsPointX(client, packedWorldPoint);//mapPoint.getX());
+            int yPos = MapWorldPointToGraphicsPointY(client, packedWorldPoint);//mapPoint.getY());
+
+            graphics.setColor(new Color(255, 0, 0, 150));
+            graphics.fillRect(xPos, yPos, 100, 100);
 
             // TODO: Need to actually draw this within the map bounds
             // Draw a convex shape around each bestiary group
